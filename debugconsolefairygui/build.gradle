@@ -1,0 +1,91 @@
+import java.util.zip.ZipFile
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 28
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    packagingOptions {
+        exclude 'R.txt'
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
+
+// 导出aar
+task export(dependsOn: 'copyToUnity'){
+    group 'debugConsoleFairygui'
+    doLast{
+        println '--------------------- export aar succeed ---------------------'
+    }
+}
+
+// 解压arr
+task unzipaar(type:Copy){
+    from zipTree('./build/outputs/aar/debugconsolefairygui-release.aar')
+    into './build/outputs/aar/temp/'
+    exclude {detail -> detail.file.name == 'R.txt'}
+}
+
+// 解压 classes.jar
+task unzipjar(type:Copy){
+    from zipTree('./build/outputs/aar/temp/classes.jar')
+    into './build/outputs/aar/temp/classes/'
+    exclude {detail -> detail.file.name == 'BuildConfig.class'}
+}
+
+// 打包 classes.jar
+task zipjar(type:Zip){
+    from './build/outputs/aar/temp/classes'
+    destinationDir file('./build/outputs/aar/temp2/')
+    archiveName 'classes.jar'
+}
+
+// 打包 aar
+task zipaar(type:Zip){
+    from './build/outputs/aar/temp2/classes.jar', './build/outputs/aar/temp/AndroidManifest.xml'
+    destinationDir file('./build/outputs/aar/')
+    baseName project.name
+    extension 'aar'
+    version '1.0'
+}
+
+// 清理临时目录
+task cleanTemp(type:Delete){
+    delete './build/outputs/aar/temp', './build/outputs/aar/temp2', './build/outputs/aar/debugconsolefairygui-release.aar', './build/outputs/aar/debugconsolefairygui-debug.aar'
+}
+
+// copy aar 导入到 unity 工程
+task copyToUnity(type:Copy){
+    from('./build/outputs/aar/'){
+        include '**.aar'
+    }
+    into 'E:/DebugConsoleFairyGUI/Assets/DebugConsoleFairyGUI/Plugins/Android/libs'
+}
+
+export.dependsOn cleanTemp
+cleanTemp.dependsOn zipaar
+zipaar.dependsOn zipjar
+zipjar.dependsOn unzipjar
+unzipjar.dependsOn unzipaar
+unzipaar.dependsOn build
